@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: udp-api
+  namespace: udp-dev
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: api
+          imagePullPolicy: Always

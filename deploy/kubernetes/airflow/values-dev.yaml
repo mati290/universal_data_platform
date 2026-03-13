@@ -1,0 +1,33 @@
+executor: KubernetesExecutor
+
+images:
+  airflow:
+    repository: replace-me.azurecr.io/udp-airflow
+    tag: dev-latest
+    pullPolicy: Always
+
+config:
+  AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+  AIRFLOW__CORE__EXECUTOR: KubernetesExecutor
+
+createUserJob:
+  useHelmHooks: false
+
+migrateDatabaseJob:
+  useHelmHooks: false
+
+webserver:
+  service:
+    type: ClusterIP
+
+externalDatabase:
+  type: postgres
+  host: udp-postgresql.postgres.database.azure.com
+  port: 5432
+  database: airflow
+  user: airflow
+  existingSecret: airflow-database
+  existingSecretPasswordKey: password
+
+registry:
+  secretName: acr-pull-secret

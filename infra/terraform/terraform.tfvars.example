@@ -1,0 +1,14 @@
+project_name             = "udp"
+environment              = "dev"
+location                 = "westeurope"
+postgres_admin_username  = "udpadmin"
+postgres_admin_password  = "ReplaceMe123!"
+postgres_db_name         = "udp"
+acr_sku                  = "Standard"
+aks_node_count           = 2
+aks_vm_size              = "Standard_D4s_v5"
+
+tags = {
+  owner       = "platform-team"
+  cost_center = "data-platform"
+}
