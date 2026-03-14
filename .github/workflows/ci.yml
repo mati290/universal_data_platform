@@ -41,6 +41,13 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/apps/api
         run: python -c "import app; print(app.__file__)"
+      - name: Initialize test database schema
+        env:
+          APP_ENV: ci
+          DATABASE_URL: postgresql+psycopg://udp:udp@localhost:5432/udp
+          REDIS_URL: redis://localhost:6379/0
+          PYTHONPATH: ${{ github.workspace }}/apps/api
+        run: python -c "from app.core.db import init_db; init_db()"
       - name: Run API tests
         env:
           APP_ENV: ci
