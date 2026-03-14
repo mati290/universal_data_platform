@@ -9,6 +9,20 @@ on:
 jobs:
   api-tests:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: udp
+          POSTGRES_USER: udp
+          POSTGRES_PASSWORD: udp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U udp -d udp"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: apps/api
@@ -24,7 +38,9 @@ jobs:
           pip install ../../packages/shared
       - name: Run API tests
         env:
-          APP_ENV: local
+          APP_ENV: ci
+          DATABASE_URL: postgresql+psycopg://udp:udp@localhost:5432/udp
+          REDIS_URL: redis://localhost:6379/0
         run: pytest tests -q
 
   python-sanity:
