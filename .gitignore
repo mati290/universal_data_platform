@@ -6,6 +6,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+build/
 .venv/
 venv/
 .env
@@ -17,16 +18,6 @@ venv/
 coverage.xml
 htmlcov/
 .cache/
-
-# Terraform
-.terraform/
-*.tfstate
-*.tfstate.*
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
-crash.log
 
 # Docker
 *.pid

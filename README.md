@@ -1,15 +1,13 @@
 # Universal Data Platform
 
-Monorepo scaffold for a data platform built with FastAPI, Pandas, Apache Airflow, PostgreSQL, Docker, Kubernetes, Terraform, and Azure.
+Monorepo scaffold for a data platform built with FastAPI, Pandas, Apache Airflow, PostgreSQL, and Docker for local-first development.
 
 ## Project layout
 
 - `apps/api` - FastAPI service exposing operational and domain APIs.
 - `airflow` - DAGs, plugins, and image definition for orchestration workloads.
 - `packages/shared` - reusable Python utilities shared by API and Airflow.
-- `deploy/kubernetes` - Kustomize manifests for the API and Helm values for Airflow.
-- `infra/terraform` - Azure infrastructure modules for networking, ACR, AKS, and PostgreSQL.
-- `.github/workflows` - CI and CD pipelines for GitHub Actions.
+- `.github/workflows` - CI workflow for GitHub Actions.
 
 ## Local development
 
@@ -18,21 +16,41 @@ Monorepo scaffold for a data platform built with FastAPI, Pandas, Apache Airflow
 3. API will be available on `http://localhost:8000`.
 4. Airflow webserver will be available on `http://localhost:8080`.
 
+## Local data workflows
+
+- CSV archives can be loaded into PostgreSQL and explored through pgAdmin.
+- Airflow can fetch live crypto prices from CoinGecko with the `crypto_market_ingest_pipeline` DAG.
+- Raw records are stored in PostgreSQL and can be queried either from tables or prepared SQL views.
+
+## pgAdmin quick start
+
+Use these connection settings in pgAdmin:
+
+- Host: `localhost`
+- Port: `5432`
+- Username: `postgres`
+- Password: `postgres`
+- Maintenance database: `postgres`
+
+Useful relations after local imports:
+
+- `public.crypto_csv_history` - full historical table imported from CSV archive files.
+- `public.crypto_csv_latest` - latest row per symbol from the imported archive.
+- `public.crypto_latest` - latest live snapshot fetched by the Airflow DAG.
+
+Example query:
+
+```sql
+SELECT symbol, event_time, close, marketcap
+FROM public.crypto_csv_latest
+ORDER BY symbol;
+```
+
 ## What is included
 
 - A working FastAPI app with a health endpoint.
 - A sample Airflow DAG that uses Pandas.
+- A scheduled Airflow DAG that fetches live crypto prices from CoinGecko.
 - A reusable shared package installed into both runtime images.
 - Dockerfiles for the API and Airflow.
-- Kubernetes base manifests and a dev overlay.
-- Terraform modules for Azure resource group, network, ACR, AKS, and PostgreSQL Flexible Server.
-- GitHub Actions workflows for CI and deployment.
-
-## Azure deployment flow
-
-1. Adjust `infra/terraform/terraform.tfvars` based on `terraform.tfvars.example`.
-2. Run `terraform init`, `terraform validate`, and `terraform plan` from `infra/terraform`.
-3. Apply infrastructure after review.
-4. Configure GitHub repository secrets and variables used by `.github/workflows/cd.yml`.
-5. Build and push container images to Azure Container Registry.
-6. Deploy the API with Kustomize and Airflow with Helm values.
+- GitHub Actions workflow for CI.

@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.core.db import SessionLocal
 from app.models.tables import RawDataORM
+from app.plugins import get_data_source_plugin
 
 
 def load_raw_data_as_dataframe(source_id: str, limit: int | None = None) -> pd.DataFrame:
@@ -68,5 +69,17 @@ def prepare_analytic_records(df: pd.DataFrame) -> list[dict[str, object]]:
 def run_transformation_pipeline(source_id: str, limit: int | None = None) -> tuple[pd.DataFrame, list[dict[str, object]]]:
     raw_df = load_raw_data_as_dataframe(source_id=source_id, limit=limit)
     cleaned_df = transform_data(raw_df)
+    records = prepare_analytic_records(cleaned_df)
+    return cleaned_df, records
+
+
+def run_plugin_transformation_pipeline(
+    source_id: str,
+    source_type: str,
+    limit: int | None = None,
+) -> tuple[pd.DataFrame, list[dict[str, object]]]:
+    raw_df = load_raw_data_as_dataframe(source_id=source_id, limit=limit)
+    plugin = get_data_source_plugin(source_type)
+    cleaned_df = plugin.transform(raw_df)
     records = prepare_analytic_records(cleaned_df)
     return cleaned_df, records

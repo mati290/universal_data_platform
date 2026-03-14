@@ -15,6 +15,25 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./deploy/local/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - udp-net
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis_data:/data
+    networks:
+      - udp-net
+    restart: unless-stopped
 
   api:
     build:
@@ -24,11 +43,23 @@ services:
       - .env.example
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://udp:udp@postgres:5432/udp}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    networks:
+      - udp-net
+    restart: unless-stopped
 
   airflow-init:
     build:
@@ -43,8 +74,13 @@ services:
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY:-}
       AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES:-False}
       AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
+      UDP_DB_URL: ${UDP_DB_URL:-postgresql://udp:udp@postgres:5432/udp}
+      RAW_DATA_BATCH_LIMIT: ${RAW_DATA_BATCH_LIMIT:-5000}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ./airflow/dags:/opt/airflow/dags
@@ -59,6 +95,8 @@ services:
       --role Admin
       --email admin@example.com
       --password admin || true"
+    networks:
+      - udp-net
 
   airflow-webserver:
     build:
@@ -71,6 +109,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       airflow-init:
         condition: service_completed_successfully
     volumes:
@@ -80,6 +120,15 @@ services:
     command: webserver
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+    networks:
+      - udp-net
+    restart: unless-stopped
 
   airflow-scheduler:
     build:
@@ -92,6 +141,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       airflow-init:
         condition: service_completed_successfully
     volumes:
@@ -99,7 +150,21 @@ services:
       - ./airflow/plugins:/opt/airflow/plugins
       - airflow_logs:/opt/airflow/logs
     command: scheduler
+    healthcheck:
+      test: ["CMD", "airflow", "jobs", "check", "--job-type", "SchedulerJob", "--hostname", "$(hostname)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+    networks:
+      - udp-net
+    restart: unless-stopped
+
+networks:
+  udp-net:
+    driver: bridge
 
 volumes:
   postgres_data:
+  redis_data:
   airflow_logs:
