@@ -12,9 +12,10 @@ Monorepo scaffold for a data platform built with FastAPI, Pandas, Apache Airflow
 ## Local development
 
 1. Create a local `.env` file from `.env.example`.
-2. Start the local stack with `docker compose up --build`.
+2. Start the core local stack with `docker compose up --build`.
 3. API will be available on `http://localhost:8000`.
-4. Airflow webserver will be available on `http://localhost:8080`.
+4. Start Airflow only when needed with `docker compose --profile airflow up --build`.
+5. Airflow webserver will be available on `http://localhost:8080`.
 
 ## Local data workflows
 
@@ -37,6 +38,12 @@ Useful relations after local imports:
 - `public.crypto_csv_history` - full historical table imported from CSV archive files.
 - `public.crypto_csv_latest` - latest row per symbol from the imported archive.
 - `public.crypto_latest` - latest live snapshot fetched by the Airflow DAG.
+
+Useful API endpoints:
+
+- `GET /api/v1/crypto/archive/latest` - latest archive row per symbol.
+- `GET /api/v1/crypto/live/latest` - latest live row per symbol from Airflow ingestion.
+- Both endpoints support `limit` and optional `symbol` query parameters.
 
 Example query:
 

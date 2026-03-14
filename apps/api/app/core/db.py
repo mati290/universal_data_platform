@@ -1,6 +1,7 @@
 from collections.abc import Generator
 
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import get_settings
@@ -96,8 +97,87 @@ def _migrate_raw_data_table() -> None:
 		)
 
 
+def _ensure_crypto_tables_and_views() -> None:
+	def _execute_ddl_safely(sql: str) -> None:
+		with engine.begin() as connection:
+			try:
+				connection.execute(text(sql))
+			except ProgrammingError as exc:
+				message = str(exc).lower()
+				if "must be owner" in message or "permission denied" in message:
+					return
+				raise
+
+	_execute_ddl_safely(
+			"""
+			CREATE TABLE IF NOT EXISTS crypto_csv_history (
+				id BIGSERIAL PRIMARY KEY,
+				source_file TEXT NOT NULL,
+				s_no INTEGER NOT NULL,
+				coin_name TEXT NOT NULL,
+				symbol TEXT NOT NULL,
+				event_time TIMESTAMPTZ NOT NULL,
+				high NUMERIC NOT NULL,
+				low NUMERIC NOT NULL,
+				open NUMERIC NOT NULL,
+				close NUMERIC NOT NULL,
+				volume NUMERIC NOT NULL,
+				marketcap NUMERIC NOT NULL,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+			)
+			"""
+		)
+	_execute_ddl_safely(
+			"""
+			CREATE INDEX IF NOT EXISTS ix_crypto_csv_history_symbol_time
+			ON crypto_csv_history(symbol, event_time DESC)
+			"""
+		)
+	_execute_ddl_safely(
+			"""
+			CREATE OR REPLACE VIEW crypto_csv_latest AS
+			SELECT DISTINCT ON (symbol)
+				id,
+				source_file,
+				coin_name,
+				symbol,
+				event_time,
+				high,
+				low,
+				open,
+				close,
+				volume,
+				marketcap,
+				created_at
+			FROM crypto_csv_history
+			ORDER BY symbol, event_time DESC, id DESC
+			"""
+		)
+	_execute_ddl_safely(
+			"""
+			CREATE OR REPLACE VIEW crypto_latest AS
+			SELECT DISTINCT ON ((r.raw_json->>'symbol'))
+				r.id,
+				s.name AS source_name,
+				r.created_at,
+				r.raw_json->>'symbol' AS symbol,
+				r.raw_json->>'asset_id' AS asset_id,
+				(r.raw_json->>'price_usd')::numeric AS price_usd,
+				(r.raw_json->>'event_time')::timestamptz AS event_time,
+				r.raw_json->>'provider' AS provider
+			FROM raw_data AS r
+			JOIN sources AS s ON s.id = r.source_id
+			WHERE s.name = 'crypto-coingecko'
+			  AND r.raw_json ? 'symbol'
+			  AND r.raw_json ? 'price_usd'
+			ORDER BY (r.raw_json->>'symbol'), COALESCE((r.raw_json->>'event_time')::timestamptz, r.created_at) DESC, r.id DESC
+			"""
+		)
+
+
 def init_db() -> None:
 	import app.models.tables  # noqa: F401
 
 	Base.metadata.create_all(bind=engine)
 	_migrate_raw_data_table()
+	_ensure_crypto_tables_and_views()
