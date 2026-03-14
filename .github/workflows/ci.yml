@@ -37,12 +37,17 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e .
           pip install ../../packages/shared
+      - name: Verify API package import
+        env:
+          PYTHONPATH: ${{ github.workspace }}/apps/api
+        run: python -c "import app; print(app.__file__)"
       - name: Run API tests
         env:
           APP_ENV: ci
           DATABASE_URL: postgresql+psycopg://udp:udp@localhost:5432/udp
           REDIS_URL: redis://localhost:6379/0
-        run: pytest tests -q
+          PYTHONPATH: ${{ github.workspace }}/apps/api
+        run: python -m pytest tests -q
 
   python-sanity:
     runs-on: ubuntu-latest
