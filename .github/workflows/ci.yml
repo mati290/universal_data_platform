@@ -35,13 +35,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
+          pip install -e .
           pip install ../../packages/shared
       - name: Run API tests
         env:
           APP_ENV: ci
           DATABASE_URL: postgresql+psycopg://udp:udp@localhost:5432/udp
           REDIS_URL: redis://localhost:6379/0
-          PYTHONPATH: .
         run: pytest tests -q
 
   python-sanity:
